@@ -99,52 +99,7 @@ const VerificationTooltip: React.FC<VerificationTooltipProps> = ({ claim, onConf
 
 const App: React.FC = () => {
   const [content, setContent] = useState(`Apple announced the iPhone 16 in September 2024, with over 40 million pre-orders in the first week. The device features a new A18 chip and starts at $799. Tim Cook stated that this was their most successful launch to date.`);
-  const [claims, setClaims] = useState<Claim[]>([
-    {
-      id: '1',
-      text: 'iPhone 16 in September 2024',
-      start: 19,
-      end: 45,
-      type: 'date',
-      status: 'verified',
-      confidence: 95,
-      sources: ['Apple Press Release', 'TechCrunch'],
-      evidence: 'Apple officially announced the iPhone 16 on September 12, 2024.'
-    },
-    {
-      id: '2',
-      text: '40 million pre-orders',
-      start: 57,
-      end: 76,
-      type: 'number',
-      status: 'unverified',
-      confidence: 60,
-      sources: ['Industry Reports'],
-      evidence: 'Pre-order numbers have not been officially confirmed by Apple.'
-    },
-    {
-      id: '3',
-      text: 'A18 chip',
-      start: 122,
-      end: 130,
-      type: 'entity',
-      status: 'verified',
-      confidence: 98,
-      sources: ['Apple Specifications', 'AnandTech'],
-      evidence: 'The iPhone 16 series features the new A18 and A18 Pro chips.'
-    },
-    {
-      id: '4',
-      text: 'starts at $799',
-      start: 135,
-      end: 150,
-      type: 'number',
-      status: 'false',
-      confidence: 85,
-      sources: ['Apple Store', 'Multiple retailers'],
-      evidence: 'The iPhone 16 actually starts at $829, not $799.'
-    }
-  ]);
+  const [claims, setClaims] = useState<Claim[]>([]);
   const [hoveredClaim, setHoveredClaim] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
@@ -152,60 +107,98 @@ const App: React.FC = () => {
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const extractClaims = useCallback(async (text: string) => {
+    console.log('extractClaims called with text:', text);
     setIsProcessing(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Mock claim extraction - in reality, this would use NLP
-    const mockClaims: Claim[] = [];
-    
-    // Extract dates
-    const dateRegex = /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b|\b\d{4}\b/gi;
-    let match;
-    while ((match = dateRegex.exec(text)) !== null) {
-      mockClaims.push({
-        id: `date-${mockClaims.length}`,
-        text: match[0],
-        start: match.index,
-        end: match.index + match[0].length,
-        type: 'date',
-        status: Math.random() > 0.5 ? 'verified' : 'unverified',
-        confidence: Math.floor(Math.random() * 30) + 70,
-        sources: ['Wikipedia', 'News APIs'],
-        evidence: `Date information found in reliable sources.`
+    try {
+      console.log('Attempting to fetch from API...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      const response = await fetch('http://localhost:8000/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: text }),
+        signal: controller.signal
       });
-    }
-    
-    // Extract numbers
-    const numberRegex = /\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:million|billion|thousand|%|dollars?|\$)?\b/gi;
-    const numberText = text;
-    let numberMatch;
-    while ((numberMatch = numberRegex.exec(numberText)) !== null) {
-      if (numberMatch[0].length > 2) { // Only significant numbers
+
+      clearTimeout(timeoutId);
+      console.log('API response received:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API data received:', data);
+      setClaims(data.claims);
+    } catch (error) {
+      console.error('Error analyzing text:', error);
+      console.log('Using fallback mock data for text:', text);
+      
+      // Fallback to mock data if API is not available
+      const mockClaims: Claim[] = [];
+      
+      // Simple regex patterns to find claims in any text
+      const dateRegex = /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b|\b\d{4}\b/gi;
+      const numberRegex = /\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:million|billion|thousand|%|dollars?|\$)\b/gi;
+      
+      let match;
+      let claimId = 1;
+      
+      // Extract dates
+      while ((match = dateRegex.exec(text)) !== null) {
+        console.log('Found date:', match[0], 'at position:', match.index);
         mockClaims.push({
-          id: `number-${mockClaims.length}`,
-          text: numberMatch[0],
-          start: numberMatch.index,
-          end: numberMatch.index + numberMatch[0].length,
-          type: 'number',
-          status: Math.random() > 0.3 ? 'verified' : 'unverified',
-          confidence: Math.floor(Math.random() * 40) + 60,
-          sources: ['Company Reports', 'Financial Data'],
-          evidence: `Numerical claim verification in progress.`
+          id: `date-${claimId++}`,
+          text: match[0],
+          start: match.index,
+          end: match.index + match[0].length,
+          type: 'date',
+          status: Math.random() > 0.5 ? 'verified' : 'unverified',
+          confidence: Math.floor(Math.random() * 30) + 70,
+          sources: ['Wikipedia', 'News APIs'],
+          evidence: 'Date information found in reliable sources.'
         });
       }
+      
+      // Extract numbers
+      while ((match = numberRegex.exec(text)) !== null) {
+        if (match[0].length > 3) { // Only significant numbers
+          console.log('Found number:', match[0], 'at position:', match.index);
+          mockClaims.push({
+            id: `number-${claimId++}`,
+            text: match[0],
+            start: match.index,
+            end: match.index + match[0].length,
+            type: 'number',
+            status: Math.random() > 0.3 ? 'verified' : 'unverified',
+            confidence: Math.floor(Math.random() * 40) + 60,
+            sources: ['Company Reports', 'Financial Data'],
+            evidence: 'Numerical claim verification in progress.'
+          });
+        }
+      }
+      
+      console.log('Generated claims:', mockClaims);
+      console.log('Setting claims state with:', mockClaims);
+      setClaims(mockClaims);
+    } finally {
+      setIsProcessing(false);
     }
-    
-    setClaims(mockClaims);
-    setIsProcessing(false);
   }, []);
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
+    // Don't clear claims immediately - let user decide when to re-analyze
   };
 
   const handleAnalyze = () => {
+    console.log('Analyze button clicked!');
+    console.log('Current content:', content);
+    alert('Button clicked! Check console for details.');
     extractClaims(content);
   };
 
@@ -222,15 +215,49 @@ const App: React.FC = () => {
     setHoveredClaim(null);
   };
 
-  const confirmClaim = (claimId: string) => {
-    setClaims(prev => prev.map(claim => 
-      claim.id === claimId ? { ...claim, status: 'verified' as const, confidence: 100 } : claim
-    ));
+  const confirmClaim = async (claimId: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ claim_id: claimId, action: 'confirm' }),
+      });
+
+      if (response.ok) {
+        setClaims(prev => prev.map(claim => 
+          claim.id === claimId ? { ...claim, status: 'verified' as const, confidence: 100 } : claim
+        ));
+      }
+    } catch (error) {
+      console.error('Error confirming claim:', error);
+      // Fallback to local state update
+      setClaims(prev => prev.map(claim => 
+        claim.id === claimId ? { ...claim, status: 'verified' as const, confidence: 100 } : claim
+      ));
+    }
     setHoveredClaim(null);
   };
 
-  const correctClaim = (claimId: string) => {
-    setClaims(prev => prev.filter(claim => claim.id !== claimId));
+  const correctClaim = async (claimId: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ claim_id: claimId, action: 'correct' }),
+      });
+
+      if (response.ok) {
+        setClaims(prev => prev.filter(claim => claim.id !== claimId));
+      }
+    } catch (error) {
+      console.error('Error correcting claim:', error);
+      // Fallback to local state update
+      setClaims(prev => prev.filter(claim => claim.id !== claimId));
+    }
     setHoveredClaim(null);
   };
 
@@ -244,22 +271,61 @@ const App: React.FC = () => {
   };
 
   const renderHighlightedContent = () => {
-    if (claims.length === 0) return content;
+    console.log('Rendering highlighted content. Claims:', claims);
+    if (claims.length === 0) {
+      return <span>{content}</span>;
+    }
     
-    let highlightedContent = content;
-    const sortedClaims = [...claims].sort((a, b) => b.start - a.start);
+    const sortedClaims = [...claims].sort((a, b) => a.start - b.start);
+    console.log('Sorted claims:', sortedClaims);
+    const elements: JSX.Element[] = [];
+    let lastIndex = 0;
     
-    sortedClaims.forEach(claim => {
-      const before = highlightedContent.slice(0, claim.start);
-      const claimText = highlightedContent.slice(claim.start, claim.end);
-      const after = highlightedContent.slice(claim.end);
+    sortedClaims.forEach((claim, index) => {
+      console.log(`Processing claim ${index}:`, claim);
       
-      highlightedContent = before + 
-        `<span class="${getClaimHighlight(claim)} cursor-pointer px-1 rounded-sm transition-all duration-200 hover:shadow-md" data-claim-id="${claim.id}">${claimText}</span>` + 
-        after;
+      // Add text before the claim
+      if (claim.start > lastIndex) {
+        const beforeText = content.slice(lastIndex, claim.start);
+        console.log(`Adding text before claim: "${beforeText}"`);
+        elements.push(
+          <span key={`text-${index}`}>
+            {beforeText}
+          </span>
+        );
+      }
+      
+      // Add the highlighted claim
+      const claimText = content.slice(claim.start, claim.end);
+      console.log(`Adding highlighted claim: "${claimText}" with class: ${getClaimHighlight(claim)}`);
+      elements.push(
+        <span
+          key={`claim-${claim.id}`}
+          className={`${getClaimHighlight(claim)} cursor-pointer px-1 rounded-sm transition-all duration-200 hover:shadow-md`}
+          data-claim-id={claim.id}
+          onMouseEnter={(e) => handleClaimHover(claim.id, e)}
+          onMouseLeave={handleClaimLeave}
+        >
+          {claimText}
+        </span>
+      );
+      
+      lastIndex = claim.end;
     });
     
-    return highlightedContent;
+    // Add remaining text after the last claim
+    if (lastIndex < content.length) {
+      const remainingText = content.slice(lastIndex);
+      console.log(`Adding remaining text: "${remainingText}"`);
+      elements.push(
+        <span key="text-end">
+          {remainingText}
+        </span>
+      );
+    }
+    
+    console.log('Final elements array:', elements);
+    return <>{elements}</>;
   };
 
   const getVerificationStats = () => {
@@ -354,18 +420,9 @@ const App: React.FC = () => {
                   {claims.length > 0 && (
                     <div className="border-t pt-4">
                       <h3 className="font-medium text-gray-900 mb-3">Verified Content Preview</h3>
-                      <div 
-                        className="p-4 bg-gray-50 rounded-xl border leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: renderHighlightedContent() }}
-                        onMouseOver={(e) => {
-                          const target = e.target as HTMLElement;
-                          const claimId = target.getAttribute('data-claim-id');
-                          if (claimId) {
-                            handleClaimHover(claimId, e as any);
-                          }
-                        }}
-                        onMouseLeave={handleClaimLeave}
-                      />
+                      <div className="p-4 bg-gray-50 rounded-xl border leading-relaxed">
+                        {renderHighlightedContent()}
+                      </div>
                     </div>
                   )}
                 </div>
