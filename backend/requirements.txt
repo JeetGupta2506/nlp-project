@@ -1,14 +1,14 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-multipart==0.0.6
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+fastapi==0.115.0
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+python-multipart==0.0.20
 python-dotenv==1.0.0
-requests==2.31.0
-spacy==3.7.2
-nltk==3.8.1
-textblob==0.17.1
-newspaper3k==0.2.8
-beautifulsoup4==4.12.2
-lxml==4.9.3
+
+# LangChain & LangGraph - Latest stable versions
+langchain==0.3.13
+langchain-google-genai==2.0.8
+langgraph==0.2.60
+google-generativeai==0.8.3
+
+# Additional utilities
+textblob==0.18.0.post0

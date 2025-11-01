@@ -1,526 +1,197 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { CheckCircle, AlertTriangle, HelpCircle, Clock, Edit3, Search, FileText, Zap } from 'lucide-react';
+﻿import React, { useState } from 'react';
+import { Sparkles, RefreshCw, ArrowRight, Info } from 'lucide-react';
 
-interface Claim {
-  id: string;
-  text: string;
-  start: number;
-  end: number;
-  type: 'date' | 'number' | 'entity' | 'fact';
-  status: 'verified' | 'unverified' | 'false' | 'pending';
-  confidence: number;
-  sources?: string[];
-  evidence?: string;
+interface Tone {
+  name: string;
+  description: string;
+  example_input: string;
+  example_output: string;
+  emoji: string;
 }
 
-interface VerificationTooltipProps {
-  claim: Claim;
-  onConfirm: (id: string) => void;
-  onCorrect: (id: string) => void;
+interface RewriteResponse {
+  original: string;
+  rewritten: string;
+  tone: string;
+  persona: string | null;
+  explanation: string[];
+  processing_time: number;
+  model_used: string;
 }
-
-const VerificationTooltip: React.FC<VerificationTooltipProps> = ({ claim, onConfirm, onCorrect }) => {
-  const getStatusIcon = () => {
-    switch (claim.status) {
-      case 'verified': return <CheckCircle className="w-4 h-4 text-emerald-500" />;
-      case 'unverified': return <AlertTriangle className="w-4 h-4 text-amber-500" />;
-      case 'false': return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      case 'pending': return <Clock className="w-4 h-4 text-blue-500" />;
-    }
-  };
-
-  const getStatusText = () => {
-    switch (claim.status) {
-      case 'verified': return 'Verified';
-      case 'unverified': return 'Unverified';
-      case 'false': return 'Possibly False';
-      case 'pending': return 'Checking...';
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (claim.status) {
-      case 'verified': return 'text-emerald-600';
-      case 'unverified': return 'text-amber-600';
-      case 'false': return 'text-red-600';
-      case 'pending': return 'text-blue-600';
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 max-w-sm backdrop-blur-sm">
-      <div className="flex items-center gap-2 mb-2">
-        {getStatusIcon()}
-        <span className={`font-medium ${getStatusColor()}`}>{getStatusText()}</span>
-        <span className="text-sm text-gray-500">({claim.confidence}% confident)</span>
-      </div>
-      
-      <p className="text-sm text-gray-600 mb-3">
-        <strong>Claim:</strong> "{claim.text}"
-      </p>
-      
-      {claim.evidence && (
-        <p className="text-sm text-gray-700 mb-3">
-          <strong>Evidence:</strong> {claim.evidence}
-        </p>
-      )}
-      
-      {claim.sources && claim.sources.length > 0 && (
-        <div className="mb-3">
-          <p className="text-sm font-medium text-gray-700 mb-1">Sources:</p>
-          <ul className="text-xs text-gray-600 space-y-1">
-            {claim.sources.map((source, index) => (
-              <li key={index} className="flex items-center gap-1">
-                <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                {source}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      
-      <div className="flex gap-2">
-        <button
-          onClick={() => onConfirm(claim.id)}
-          className="flex-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium hover:bg-emerald-100 transition-colors"
-        >
-          Confirm
-        </button>
-        <button
-          onClick={() => onCorrect(claim.id)}
-          className="flex-1 px-3 py-1.5 bg-gray-50 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors"
-        >
-          Correct
-        </button>
-      </div>
-    </div>
-  );
-};
 
 const App: React.FC = () => {
-  const [content, setContent] = useState(`Apple announced the iPhone 16 in September 2024, with over 40 million pre-orders in the first week. The device features a new A18 chip and starts at $799. Tim Cook stated that this was their most successful launch to date.`);
-  const [claims, setClaims] = useState<Claim[]>([]);
-  const [hoveredClaim, setHoveredClaim] = useState<string | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const [comment, setComment] = useState("Bruh this product is trash ");
+  const [selectedTone, setSelectedTone] = useState("professional");
+  const [result, setResult] = useState<RewriteResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [tones, setTones] = useState<Tone[]>([]);
 
-  const extractClaims = useCallback(async (text: string) => {
-    console.log('extractClaims called with text:', text);
-    setIsProcessing(true);
-    
-    try {
-      console.log('Attempting to fetch from API...');
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-      
-      const response = await fetch('http://localhost:8000/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: text }),
-        signal: controller.signal
+  React.useEffect(() => {
+    fetch('http://localhost:8000/tones')
+      .then(res => res.json())
+      .then(data => setTones(data))
+      .catch(err => {
+        console.error('Failed to fetch tones:', err);
+        setTones([
+          { name: 'Casual', description: 'Friendly and relaxed', example_input: '', example_output: '', emoji: '' },
+          { name: 'Professional', description: 'Business-appropriate', example_input: '', example_output: '', emoji: '' },
+          { name: 'Supportive', description: 'Encouraging', example_input: '', example_output: '', emoji: '' },
+          { name: 'Sarcastic', description: 'Witty and ironic', example_input: '', example_output: '', emoji: '' },
+          { name: 'Respectful', description: 'Polite', example_input: '', example_output: '', emoji: '' },
+          { name: 'Empathetic', description: 'Understanding', example_input: '', example_output: '', emoji: '' },
+          { name: 'Funny', description: 'Humorous', example_input: '', example_output: '', emoji: '' },
+          { name: 'Motivational', description: 'Inspiring', example_input: '', example_output: '', emoji: '' }
+        ]);
       });
-
-      clearTimeout(timeoutId);
-      console.log('API response received:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('API data received:', data);
-      setClaims(data.claims);
-    } catch (error) {
-      console.error('Error analyzing text:', error);
-      console.log('Using fallback mock data for text:', text);
-      
-      // Fallback to mock data if API is not available
-      const mockClaims: Claim[] = [];
-      
-      // Simple regex patterns to find claims in any text
-      const dateRegex = /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b|\b\d{4}\b/gi;
-      const numberRegex = /\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:million|billion|thousand|%|dollars?|\$)\b/gi;
-      
-      let match;
-      let claimId = 1;
-      
-      // Extract dates
-      while ((match = dateRegex.exec(text)) !== null) {
-        console.log('Found date:', match[0], 'at position:', match.index);
-        mockClaims.push({
-          id: `date-${claimId++}`,
-          text: match[0],
-          start: match.index,
-          end: match.index + match[0].length,
-          type: 'date',
-          status: Math.random() > 0.5 ? 'verified' : 'unverified',
-          confidence: Math.floor(Math.random() * 30) + 70,
-          sources: ['Wikipedia', 'News APIs'],
-          evidence: 'Date information found in reliable sources.'
-        });
-      }
-      
-      // Extract numbers
-      while ((match = numberRegex.exec(text)) !== null) {
-        if (match[0].length > 3) { // Only significant numbers
-          console.log('Found number:', match[0], 'at position:', match.index);
-          mockClaims.push({
-            id: `number-${claimId++}`,
-            text: match[0],
-            start: match.index,
-            end: match.index + match[0].length,
-            type: 'number',
-            status: Math.random() > 0.3 ? 'verified' : 'unverified',
-            confidence: Math.floor(Math.random() * 40) + 60,
-            sources: ['Company Reports', 'Financial Data'],
-            evidence: 'Numerical claim verification in progress.'
-          });
-        }
-      }
-      
-      console.log('Generated claims:', mockClaims);
-      console.log('Setting claims state with:', mockClaims);
-      setClaims(mockClaims);
-    } finally {
-      setIsProcessing(false);
-    }
   }, []);
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-    // Don't clear claims immediately - let user decide when to re-analyze
-  };
-
-  const handleAnalyze = () => {
-    console.log('Analyze button clicked!');
-    console.log('Current content:', content);
-    alert('Button clicked! Check console for details.');
-    extractClaims(content);
-  };
-
-  const handleClaimHover = (claimId: string, event: React.MouseEvent) => {
-    setHoveredClaim(claimId);
-    const rect = event.currentTarget.getBoundingClientRect();
-    setTooltipPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 10
-    });
-  };
-
-  const handleClaimLeave = () => {
-    setHoveredClaim(null);
-  };
-
-  const confirmClaim = async (claimId: string) => {
+  const handleRewrite = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/verify', {
+      const response = await fetch('http://localhost:8000/rewrite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ claim_id: claimId, action: 'confirm' }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comment,
+          tone: selectedTone,
+          context: null,
+          persona: null
+        })
       });
-
-      if (response.ok) {
-        setClaims(prev => prev.map(claim => 
-          claim.id === claimId ? { ...claim, status: 'verified' as const, confidence: 100 } : claim
-        ));
-      }
+      
+      const data = await response.json();
+      setResult(data);
     } catch (error) {
-      console.error('Error confirming claim:', error);
-      // Fallback to local state update
-      setClaims(prev => prev.map(claim => 
-        claim.id === claimId ? { ...claim, status: 'verified' as const, confidence: 100 } : claim
-      ));
-    }
-    setHoveredClaim(null);
-  };
-
-  const correctClaim = async (claimId: string) => {
-    try {
-      const response = await fetch('http://localhost:8000/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ claim_id: claimId, action: 'correct' }),
-      });
-
-      if (response.ok) {
-        setClaims(prev => prev.filter(claim => claim.id !== claimId));
-      }
-    } catch (error) {
-      console.error('Error correcting claim:', error);
-      // Fallback to local state update
-      setClaims(prev => prev.filter(claim => claim.id !== claimId));
-    }
-    setHoveredClaim(null);
-  };
-
-  const getClaimHighlight = (claim: Claim) => {
-    switch (claim.status) {
-      case 'verified': return 'bg-emerald-100 border-b-2 border-emerald-400';
-      case 'unverified': return 'bg-amber-100 border-b-2 border-amber-400';
-      case 'false': return 'bg-red-100 border-b-2 border-red-400';
-      case 'pending': return 'bg-blue-100 border-b-2 border-blue-400';
+      console.error('Rewrite failed:', error);
+      alert('Failed to rewrite comment. Make sure the backend is running on port 8000.');
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  const renderHighlightedContent = () => {
-    console.log('Rendering highlighted content. Claims:', claims);
-    if (claims.length === 0) {
-      return <span>{content}</span>;
-    }
-    
-    const sortedClaims = [...claims].sort((a, b) => a.start - b.start);
-    console.log('Sorted claims:', sortedClaims);
-    const elements: JSX.Element[] = [];
-    let lastIndex = 0;
-    
-    sortedClaims.forEach((claim, index) => {
-      console.log(`Processing claim ${index}:`, claim);
-      
-      // Add text before the claim
-      if (claim.start > lastIndex) {
-        const beforeText = content.slice(lastIndex, claim.start);
-        console.log(`Adding text before claim: "${beforeText}"`);
-        elements.push(
-          <span key={`text-${index}`}>
-            {beforeText}
-          </span>
-        );
-      }
-      
-      // Add the highlighted claim
-      const claimText = content.slice(claim.start, claim.end);
-      console.log(`Adding highlighted claim: "${claimText}" with class: ${getClaimHighlight(claim)}`);
-      elements.push(
-        <span
-          key={`claim-${claim.id}`}
-          className={`${getClaimHighlight(claim)} cursor-pointer px-1 rounded-sm transition-all duration-200 hover:shadow-md`}
-          data-claim-id={claim.id}
-          onMouseEnter={(e) => handleClaimHover(claim.id, e)}
-          onMouseLeave={handleClaimLeave}
-        >
-          {claimText}
-        </span>
-      );
-      
-      lastIndex = claim.end;
-    });
-    
-    // Add remaining text after the last claim
-    if (lastIndex < content.length) {
-      const remainingText = content.slice(lastIndex);
-      console.log(`Adding remaining text: "${remainingText}"`);
-      elements.push(
-        <span key="text-end">
-          {remainingText}
-        </span>
-      );
-    }
-    
-    console.log('Final elements array:', elements);
-    return <>{elements}</>;
-  };
-
-  const getVerificationStats = () => {
-    const total = claims.length;
-    const verified = claims.filter(c => c.status === 'verified').length;
-    const unverified = claims.filter(c => c.status === 'unverified').length;
-    const false_ = claims.filter(c => c.status === 'false').length;
-    
-    return { total, verified, unverified, false: false_ };
-  };
-
-  const stats = getVerificationStats();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Search className="w-5 h-5 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Sparkles className="w-10 h-10 text-purple-600" />
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              Comment Rewriter
+            </h1>
+          </div>
+          <p className="text-xl text-gray-600">Transform your tone. Express smarter. </p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8 mb-8">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                <span className="text-lg"></span>
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">FactCheck Pro</h1>
-                <p className="text-sm text-gray-600">Intelligent claim verification</p>
+              <h2 className="text-xl font-semibold text-gray-900">Original Comment</h2>
+            </div>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Type your comment here..."
+              className="w-full h-40 p-4 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 transition-all"
+            />
+            <p className="text-sm text-gray-500 mt-2">{comment.length} characters</p>
+          </div>
+
+          {result && (
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl shadow-lg p-6 border border-purple-100">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">Rewritten</h2>
+                <span className="ml-auto text-sm text-purple-600 font-medium">{result.tone}</span>
+              </div>
+              <div className="bg-white rounded-xl p-4 min-h-[160px] border border-purple-200">
+                <p className="text-gray-800 text-lg leading-relaxed">{result.rewritten}</p>
+              </div>
+              <div className="mt-4 space-y-2">
+                {result.explanation.map((exp, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-sm text-gray-600">
+                    <Info className="w-4 h-4 mt-0.5 text-purple-500 flex-shrink-0" />
+                    <span>{exp}</span>
+                  </div>
+                ))}
+                <p className="text-xs text-gray-400 mt-2">
+                  Processed in {result.processing_time.toFixed(3)}s  {result.model_used}
+                </p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-4">
-              {stats.total > 0 && (
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    <span className="font-medium text-emerald-700">{stats.verified}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    <span className="font-medium text-amber-700">{stats.unverified}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                    <span className="font-medium text-red-700">{stats.false}</span>
-                  </div>
-                </div>
-              )}
-              
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Choose Your Tone</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {tones.map((tone) => (
               <button
-                onClick={handleAnalyze}
-                disabled={isProcessing}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors duration-200"
+                key={tone.name.toLowerCase()}
+                onClick={() => setSelectedTone(tone.name.toLowerCase())}
+                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                  selectedTone === tone.name.toLowerCase()
+                    ? 'border-purple-500 bg-purple-50 shadow-md'
+                    : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                }`}
               >
-                {isProcessing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4" />
-                    Analyze Claims
-                  </>
-                )}
+                <div className="text-3xl mb-2">{tone.emoji}</div>
+                <div className="font-semibold text-gray-900">{tone.name}</div>
+                <div className="text-xs text-gray-500 mt-1">{tone.description}</div>
               </button>
-            </div>
+            ))}
           </div>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Editor */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden">
-              <div className="border-b border-gray-100 px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-gray-400" />
-                  <h2 className="font-semibold text-gray-900">Content Editor</h2>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <div className="space-y-4">
-                  <textarea
-                    ref={editorRef}
-                    value={content}
-                    onChange={handleContentChange}
-                    placeholder="Paste your content here to verify claims..."
-                    className="w-full h-64 p-4 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-colors duration-200"
-                  />
-                  
-                  {claims.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h3 className="font-medium text-gray-900 mb-3">Verified Content Preview</h3>
-                      <div className="p-4 bg-gray-50 rounded-xl border leading-relaxed">
-                        {renderHighlightedContent()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Legend */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Verification Legend
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-2 bg-emerald-100 border-b-2 border-emerald-400 rounded-sm"></div>
-                  <span className="text-sm text-gray-700">Verified claims</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-2 bg-amber-100 border-b-2 border-amber-400 rounded-sm"></div>
-                  <span className="text-sm text-gray-700">Unverified claims</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-2 bg-red-100 border-b-2 border-red-400 rounded-sm"></div>
-                  <span className="text-sm text-gray-700">Possibly false</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-2 bg-blue-100 border-b-2 border-blue-400 rounded-sm"></div>
-                  <span className="text-sm text-gray-700">Checking...</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Claims List */}
-            {claims.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Detected Claims</h3>
-                <div className="space-y-3">
-                  {claims.map(claim => (
-                    <div
-                      key={claim.id}
-                      className="p-3 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors duration-200 cursor-pointer"
-                      onMouseEnter={(e) => handleClaimHover(claim.id, e)}
-                      onMouseLeave={handleClaimLeave}
-                    >
-                      <div className="flex items-start gap-2">
-                        {claim.status === 'verified' && <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5" />}
-                        {claim.status === 'unverified' && <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5" />}
-                        {claim.status === 'false' && <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5" />}
-                        {claim.status === 'pending' && <Clock className="w-4 h-4 text-blue-500 mt-0.5" />}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            "{claim.text}"
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {claim.confidence}% confidence • {claim.type}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        <div className="flex justify-center">
+          <button
+            onClick={handleRewrite}
+            disabled={isLoading || !comment.trim()}
+            className="group flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                Rewriting...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5" />
+                Rewrite Comment
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </>
             )}
+          </button>
+        </div>
 
-            {/* Quick Tips */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6">
-              <h3 className="font-semibold text-blue-900 mb-3">💡 Quick Tips</h3>
-              <ul className="text-sm text-blue-800 space-y-2">
-                <li>• Hover over highlighted claims to see verification details</li>
-                <li>• Green highlights indicate verified facts</li>
-                <li>• Yellow highlights need further verification</li>
-                <li>• Red highlights may contain inaccuracies</li>
-              </ul>
+        <div className="mt-12 bg-gradient-to-r from-purple-100 to-blue-100 rounded-2xl p-6 border border-purple-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3"> How It Works</h3>
+          <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-700">
+            <div className="flex items-start gap-2">
+              <span className="text-2xl">1</span>
+              <div>
+                <strong>Write or paste</strong> your comment in the text box
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-2xl">2</span>
+              <div>
+                <strong>Select a tone</strong> that matches your intent
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-2xl">3</span>
+              <div>
+                <strong>Get AI-powered</strong> rewrite instantly
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Tooltip */}
-      {hoveredClaim && (
-        <div
-          className="fixed z-50 pointer-events-auto"
-          style={{
-            left: tooltipPosition.x - 150,
-            top: tooltipPosition.y - 10,
-            transform: 'translateY(-100%)'
-          }}
-        >
-          <VerificationTooltip
-            claim={claims.find(c => c.id === hoveredClaim)!}
-            onConfirm={confirmClaim}
-            onCorrect={correctClaim}
-          />
-        </div>
-      )}
     </div>
   );
 };
