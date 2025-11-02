@@ -1,8 +1,8 @@
-# 💬✨ AI-Powered Social Media Comment Rewriter
+# 💬✨ AI-Powered Social Media Content Optimizer
 
-**"Transform your tone. Express smarter."**
+**"Transform your tone. Optimize your reach. Predict your impact."**
 
-An AI-powered social media assistant that intelligently rewrites comments to match different tones — making them more engaging, polite, funny, or professional depending on your intent. Built with **LangChain**, **LangGraph**, **FastAPI**, and **React**.
+An intelligent social media assistant that rewrites comments for 7 major platforms (Twitter, LinkedIn, Instagram, Facebook, Reddit, TikTok, YouTube) with platform-specific optimization, engagement prediction, and intelligent hashtag generation. Built with **LangChain**, **LangGraph**, **Google Gemini AI**, **FastAPI**, and **React**.
 
 ---
 
@@ -18,12 +18,24 @@ An AI-powered social media assistant that intelligently rewrites comments to mat
 - **Funny** 😂 — Humorous and entertaining
 - **Motivational** 🚀 — Inspiring and energizing
 
+### 📱 **7 Social Media Platform Integrations**
+- **Twitter/X** 𝕏 — 280 char limit, 2 hashtags, casual/funny tones
+- **LinkedIn** 💼 — 3K char limit, 5 hashtags, professional tone
+- **Instagram** 📸 — 2.2K char limit, 30 hashtags, visual storytelling
+- **Facebook** 👍 — 63K char limit, 3 hashtags, community focus
+- **Reddit** 🤖 — 10K char limit, no hashtags, respectful discourse
+- **TikTok** 🎵 — 150 char limit, 5 hashtags, viral content
+- **YouTube** ▶️ — 10K char limit, 15 hashtags, engaging comments
+
 ### ✨ **Key Capabilities**
-- **Context-Aware Rewriting** — Maintains core message while changing tone
+- **Platform-Specific Optimization** — Auto-adjusts length, hashtags, and tone per platform
+- **Engagement Prediction** — Predicts virality score, likes, shares, and comments
+- **Intelligent Hashtag Generation** — Creates platform-appropriate hashtags automatically
+- **Character Limit Enforcement** — Ensures comments fit within platform constraints
+- **Context-Aware Rewriting** — Maintains core message while transforming tone
 - **Explainability Layer** — Shows why words were changed
 - **Real-time Processing** — Instant rewriting with <1s response time
-- **Mock Mode** — Works without API key for testing
-- **Social Media Optimized** — Perfect for comments, replies, and posts
+- **One-Click Copy** — Copy optimized content to clipboard instantly
 
 ---
 
@@ -41,10 +53,11 @@ An AI-powered social media assistant that intelligently rewrites comments to mat
 ```
 
 ### **Tech Stack**
-- **Frontend**: React + TypeScript + Tailwind CSS + Vite
-- **Backend**: FastAPI + LangChain + LangGraph
-- **LLM**: OpenAI GPT-4 / GPT-3.5-turbo
-- **Optional**: ChromaDB for personalization (future feature)
+- **Frontend**: React + TypeScript + Tailwind CSS + Vite + Lucide Icons
+- **Backend**: FastAPI + LangChain + LangGraph + Python 3.12
+- **AI Engine**: Google Gemini 2.0 (FREE API with generous limits)
+- **NLP Tools**: TextBlob for sentiment analysis
+- **State Management**: LangGraph state machine (5-node workflow)
 
 ---
 

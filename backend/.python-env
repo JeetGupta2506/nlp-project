@@ -1,0 +1,3 @@
+# Environment variables to prevent optional dependency issues
+TOKENIZERS_PARALLELISM=false
+TRANSFORMERS_OFFLINE=1

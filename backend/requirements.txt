@@ -2,13 +2,25 @@ fastapi==0.115.0
 uvicorn[standard]==0.32.1
 pydantic==2.10.3
 python-multipart==0.0.20
-python-dotenv==1.0.0
+python-dotenv
 
-# LangChain & LangGraph - Latest stable versions
+# LangChain & LangGraph - Compatible versions
 langchain==0.3.13
+langchain-core==0.3.28
 langchain-google-genai==2.0.8
 langgraph==0.2.60
 google-generativeai==0.8.3
 
 # Additional utilities
 textblob==0.18.0.post0
+
+# Social Media APIs
+praw==7.7.1                     # Reddit API
+tweepy==4.14.0                  # Twitter API v2
+google-api-python-client==2.108.0  # YouTube API
+newsapi-python==0.2.7           # News API
+
+# Web Scraping
+beautifulsoup4==4.12.2
+requests==2.31.0
+lxml==4.9.3
