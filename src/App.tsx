@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { Sparkles, RefreshCw, ArrowRight, Info, Hash, TrendingUp, Target, Copy, Check } from 'lucide-react';
+import { Sparkles, RefreshCw, ArrowRight, Info, Hash, TrendingUp, Copy, Check } from 'lucide-react';
 
 interface Tone {
   name: string;
@@ -7,16 +7,6 @@ interface Tone {
   example_input: string;
   example_output: string;
   emoji: string;
-}
-
-interface Platform {
-  id: string;
-  name: string;
-  char_limit: number;
-  optimal_length: string;
-  hashtag_limit: number;
-  best_tones: string[];
-  emoji_friendly: boolean;
 }
 
 interface RewriteResponse {
@@ -48,11 +38,10 @@ interface RewriteResponse {
 const App: React.FC = () => {
   const [comment, setComment] = useState("Bruh this product is trash ");
   const [selectedTone, setSelectedTone] = useState("professional");
-  const [selectedPlatform, setSelectedPlatform] = useState<string | null>("reddit");
+  const [selectedPlatform] = useState<string | null>("reddit");
   const [result, setResult] = useState<RewriteResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [tones, setTones] = useState<Tone[]>([]);
-  const [platforms, setPlatforms] = useState<Record<string, Platform>>({});
   const [copied, setCopied] = useState(false);
   const [fetchingComments, setFetchingComments] = useState(false);
   const [realComments, setRealComments] = useState<any[]>([]);
@@ -78,12 +67,6 @@ const App: React.FC = () => {
           { name: 'Motivational', description: 'Inspiring', example_input: '', example_output: '', emoji: '🚀' }
         ]);
       });
-
-    // Fetch platforms
-    fetch('http://localhost:8000/platforms')
-      .then(res => res.json())
-      .then(data => setPlatforms(data))
-      .catch(err => console.error('Failed to fetch platforms:', err));
   }, []);
 
   const handleRewrite = async () => {
@@ -193,14 +176,6 @@ const App: React.FC = () => {
     }
   };
 
-  const getPlatformEmoji = (platformId: string) => {
-    const emojis: Record<string, string> = {
-      reddit: '🤖',
-      youtube: '▶️'
-    };
-    return emojis[platformId] || '🌐';
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
       <div className="max-w-5xl mx-auto px-6 py-12">
@@ -214,27 +189,34 @@ const App: React.FC = () => {
           <p className="text-xl text-gray-600">Transform your tone for any platform. Express smarter. 🚀</p>
         </div>
 
-        {/* Platform Selector */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Target className="w-5 h-5 text-purple-600" />
-            Choose Your Platform
+        {/* How It Works Section */}
+        <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-2xl p-6 border border-purple-200 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Info className="w-5 h-5 text-purple-600" />
+            How It Works
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {Object.entries(platforms).map(([id, platform]) => (
-              <button
-                key={id}
-                onClick={() => setSelectedPlatform(id)}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                  selectedPlatform === id
-                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                }`}
-              >
-                <div className="text-3xl mb-2">{getPlatformEmoji(id)}</div>
-                <div className="font-semibold text-gray-900 text-sm">{platform.name}</div>
-              </button>
-            ))}
+          <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-700">
+            <div className="flex items-start gap-3 bg-white/50 p-4 rounded-lg">
+              <span className="text-3xl font-bold text-purple-600">1</span>
+              <div>
+                <strong className="block mb-1">Write or Fetch</strong>
+                <span className="text-gray-600">Paste your comment or fetch real comments from Reddit/YouTube</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-white/50 p-4 rounded-lg">
+              <span className="text-3xl font-bold text-purple-600">2</span>
+              <div>
+                <strong className="block mb-1">Select a Tone</strong>
+                <span className="text-gray-600">Choose from 8 AI-powered tone styles</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-white/50 p-4 rounded-lg">
+              <span className="text-3xl font-bold text-purple-600">3</span>
+              <div>
+                <strong className="block mb-1">Get Results</strong>
+                <span className="text-gray-600">Instant AI rewrite with engagement predictions</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -484,30 +466,6 @@ const App: React.FC = () => {
               </>
             )}
           </button>
-        </div>
-
-        <div className="mt-12 bg-gradient-to-r from-purple-100 to-blue-100 rounded-2xl p-6 border border-purple-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3"> How It Works</h3>
-          <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-700">
-            <div className="flex items-start gap-2">
-              <span className="text-2xl">1</span>
-              <div>
-                <strong>Write or paste</strong> your comment in the text box
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-2xl">2</span>
-              <div>
-                <strong>Select a tone</strong> that matches your intent
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-2xl">3</span>
-              <div>
-                <strong>Get AI-powered</strong> rewrite instantly
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
