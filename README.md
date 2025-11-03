@@ -112,6 +112,46 @@ Frontend will run on **http://localhost:5173**
 
 ---
 
+## 🚀 Deployment
+
+### **Quick Deploy to Vercel + Render**
+
+This project is ready for deployment:
+- **Frontend**: Vercel (Free tier)
+- **Backend**: Render (Free tier)
+
+📖 **[Read Full Deployment Guide](./DEPLOYMENT.md)**
+
+📋 **[Quick Deployment Checklist](./DEPLOY_CHECKLIST.md)**
+
+### **Quick Steps**
+
+1. **Push to GitHub**
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+   git push -u origin main
+   ```
+
+2. **Deploy Backend to Render**
+   - Go to https://dashboard.render.com
+   - Create new Web Service
+   - Connect GitHub repo
+   - Root: `backend`
+   - Add environment variables (Gemini API, Reddit, YouTube keys)
+
+3. **Deploy Frontend to Vercel**
+   - Go to https://vercel.com/new
+   - Connect GitHub repo
+   - Add environment variable: `VITE_API_URL` = your Render backend URL
+   - Deploy
+
+✅ Done! Your app is live on the internet!
+
+---
+
 ## 🎮 Usage
 
 ### **Quick Start**

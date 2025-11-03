@@ -1,6 +1,8 @@
 ﻿import React, { useState } from 'react';
 import { Sparkles, RefreshCw, ArrowRight, Info, Hash, TrendingUp, Copy, Check } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 interface Tone {
   name: string;
   description: string;
@@ -51,7 +53,7 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     // Fetch tones
-    fetch('http://localhost:8000/tones')
+    fetch(`${API_URL}/tones`)
       .then(res => res.json())
       .then(data => setTones(data))
       .catch(err => {
@@ -72,7 +74,7 @@ const App: React.FC = () => {
   const handleRewrite = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/rewrite', {
+      const response = await fetch(`${API_URL}/rewrite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -97,7 +99,7 @@ const App: React.FC = () => {
   const fetchRedditComments = async () => {
     setFetchingComments(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/comments/reddit?query=${encodeURIComponent(subreddit)}&limit=10`);
+      const response = await fetch(`${API_URL}/api/comments/reddit?query=${encodeURIComponent(subreddit)}&limit=10`);
       const data = await response.json();
       console.log('Reddit API Response:', data);
       
@@ -130,14 +132,14 @@ const App: React.FC = () => {
         
         if (videoIdPattern.test(youtubeVideoId)) {
           // It's a video ID
-          url = `http://localhost:8000/api/comments/youtube?video_id=${youtubeVideoId}&limit=10`;
+          url = `${API_URL}/api/comments/youtube?video_id=${youtubeVideoId}&limit=10`;
         } else {
           // It's a search query
-          url = `http://localhost:8000/api/comments/youtube?query=${encodeURIComponent(youtubeVideoId)}&limit=10`;
+          url = `${API_URL}/api/comments/youtube?query=${encodeURIComponent(youtubeVideoId)}&limit=10`;
         }
       } else {
         // Empty - use trending
-        url = `http://localhost:8000/api/comments/youtube/trending?limit=10`;
+        url = `${API_URL}/api/comments/youtube/trending?limit=10`;
       }
       
       const response = await fetch(url);
