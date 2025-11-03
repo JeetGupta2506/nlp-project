@@ -48,12 +48,17 @@ interface RewriteResponse {
 const App: React.FC = () => {
   const [comment, setComment] = useState("Bruh this product is trash ");
   const [selectedTone, setSelectedTone] = useState("professional");
-  const [selectedPlatform, setSelectedPlatform] = useState<string | null>("twitter");
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>("reddit");
   const [result, setResult] = useState<RewriteResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [tones, setTones] = useState<Tone[]>([]);
   const [platforms, setPlatforms] = useState<Record<string, Platform>>({});
   const [copied, setCopied] = useState(false);
+  const [fetchingComments, setFetchingComments] = useState(false);
+  const [realComments, setRealComments] = useState<any[]>([]);
+  const [showComments, setShowComments] = useState(false);
+  const [subreddit, setSubreddit] = useState("technology");
+  const [youtubeVideoId, setYoutubeVideoId] = useState("");
 
   React.useEffect(() => {
     // Fetch tones
@@ -106,9 +111,83 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCopy = () => {
+  const fetchRedditComments = async () => {
+    setFetchingComments(true);
+    try {
+      const response = await fetch(`http://localhost:8000/api/comments/reddit?query=${encodeURIComponent(subreddit)}&limit=10`);
+      const data = await response.json();
+      console.log('Reddit API Response:', data);
+      
+      if (data.error) {
+        alert(`Error: ${data.error}`);
+        setRealComments([]);
+      } else if (data.comments && data.comments.length > 0) {
+        setRealComments(data.comments);
+        setShowComments(true);
+      } else {
+        alert('No comments found. Try a different search term.');
+        setRealComments([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Reddit comments:', err);
+      alert('Failed to fetch Reddit comments. Make sure backend is running.');
+    } finally {
+      setFetchingComments(false);
+    }
+  };
+
+  const fetchYouTubeComments = async () => {
+    setFetchingComments(true);
+    try {
+      let url;
+      
+      if (youtubeVideoId) {
+        // Check if it looks like a video ID (11 chars, alphanumeric with - and _)
+        const videoIdPattern = /^[a-zA-Z0-9_-]{11}$/;
+        
+        if (videoIdPattern.test(youtubeVideoId)) {
+          // It's a video ID
+          url = `http://localhost:8000/api/comments/youtube?video_id=${youtubeVideoId}&limit=10`;
+        } else {
+          // It's a search query
+          url = `http://localhost:8000/api/comments/youtube?query=${encodeURIComponent(youtubeVideoId)}&limit=10`;
+        }
+      } else {
+        // Empty - use trending
+        url = `http://localhost:8000/api/comments/youtube/trending?limit=10`;
+      }
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      console.log('YouTube API Response:', data);
+      
+      if (data.error) {
+        alert(`Error: ${data.error}`);
+        setRealComments([]);
+      } else if (data.comments && data.comments.length > 0) {
+        setRealComments(data.comments);
+        setShowComments(true);
+      } else {
+        alert('No comments found. Try a different video or check API keys.');
+        setRealComments([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch YouTube comments:', err);
+      alert('Failed to fetch YouTube comments. Make sure backend is running.');
+    } finally {
+      setFetchingComments(false);
+    }
+  };
+
+  const useComment = (commentText: string) => {
+    setComment(commentText);
+    setShowComments(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCopy = async () => {
     if (result?.rewritten) {
-      navigator.clipboard.writeText(result.rewritten);
+      await navigator.clipboard.writeText(result.rewritten);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -116,12 +195,7 @@ const App: React.FC = () => {
 
   const getPlatformEmoji = (platformId: string) => {
     const emojis: Record<string, string> = {
-      twitter: '𝕏',
-      linkedin: '💼',
-      instagram: '📸',
-      facebook: '👍',
       reddit: '🤖',
-      tiktok: '🎵',
       youtube: '▶️'
     };
     return emojis[platformId] || '🌐';
@@ -159,10 +233,100 @@ const App: React.FC = () => {
               >
                 <div className="text-3xl mb-2">{getPlatformEmoji(id)}</div>
                 <div className="font-semibold text-gray-900 text-sm">{platform.name}</div>
-                <div className="text-xs text-gray-500 mt-1">{platform.char_limit} chars</div>
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Fetch Real Comments Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+            Fetch Real Comments from Social Media
+          </h3>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Reddit Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🤖</span>
+                <h4 className="font-semibold text-gray-800">Reddit Search</h4>
+              </div>
+              <input
+                type="text"
+                value={subreddit}
+                onChange={(e) => setSubreddit(e.target.value)}
+                placeholder="Search keyword (e.g., AI, gaming, cooking)"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+              />
+              <p className="text-xs text-gray-500">💡 Enter any topic to find related Reddit comments</p>
+              <button
+                onClick={fetchRedditComments}
+                disabled={fetchingComments}
+                className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {fetchingComments ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                Search Reddit
+              </button>
+            </div>
+
+            {/* YouTube Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">▶️</span>
+                <h4 className="font-semibold text-gray-800">YouTube</h4>
+              </div>
+              <input
+                type="text"
+                value={youtubeVideoId}
+                onChange={(e) => setYoutubeVideoId(e.target.value)}
+                placeholder="Video ID or search 'AI news' or 'funny cats'"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+              />
+              <p className="text-xs text-gray-500 mt-1">💡 Enter video ID (dQw4w9WgXcQ), search by name, or leave empty for trending!</p>
+              <button
+                onClick={fetchYouTubeComments}
+                disabled={fetchingComments}
+                className="w-full bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {fetchingComments ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                Fetch from YouTube
+              </button>
+            </div>
+          </div>
+
+          {/* Display Fetched Comments */}
+          {showComments && realComments.length > 0 && (
+            <div className="mt-6 border-t pt-6">
+              <h4 className="font-semibold text-gray-800 mb-3">📝 Found {realComments.length} comments - Click to use:</h4>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {realComments.map((comment, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => useComment(comment.text || comment.body)}
+                    className="w-full text-left p-4 bg-gray-50 hover:bg-blue-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-all group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 font-mono">#{idx + 1}</span>
+                      <div className="flex-1">
+                        <p className="text-gray-800 line-clamp-2 group-hover:text-blue-900">{comment.text || comment.body}</p>
+                        {comment.post_title && (
+                          <p className="text-xs text-gray-500 mt-1">From: {comment.post_title}</p>
+                        )}
+                        {comment.video_title && (
+                          <p className="text-xs text-gray-500 mt-1">Video: {comment.video_title}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          <span>👤 {comment.author || comment.author_display_name || 'Anonymous'}</span>
+                          {comment.score && <span>⬆️ {comment.score}</span>}
+                          {comment.like_count && <span>❤️ {comment.like_count}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8 mb-8">

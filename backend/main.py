@@ -57,7 +57,7 @@ class RewriteRequest(BaseModel):
     tone: Literal["casual", "professional", "supportive", "sarcastic", "respectful", "empathetic", "funny", "motivational"]
     context: Optional[str] = None
     persona: Optional[str] = None
-    platform: Optional[Literal["twitter", "linkedin", "instagram", "facebook", "reddit", "tiktok", "youtube"]] = None
+    platform: Optional[Literal["reddit", "youtube"]] = None
 
 class RewriteResponse(BaseModel):
     original: str
@@ -158,42 +158,6 @@ class RewriteState(TypedDict):
 
 # Social Media Platform Configurations
 PLATFORM_CONFIGS = {
-    "twitter": {
-        "name": "Twitter/X",
-        "char_limit": 280,
-        "optimal_length": "71-100 characters",
-        "hashtag_limit": 2,
-        "best_tones": ["casual", "funny", "sarcastic"],
-        "emoji_friendly": True,
-        "thread_capable": True
-    },
-    "linkedin": {
-        "name": "LinkedIn",
-        "char_limit": 3000,
-        "optimal_length": "150-300 characters",
-        "hashtag_limit": 5,
-        "best_tones": ["professional", "motivational", "respectful"],
-        "emoji_friendly": False,
-        "thread_capable": False
-    },
-    "instagram": {
-        "name": "Instagram",
-        "char_limit": 2200,
-        "optimal_length": "138-150 characters",
-        "hashtag_limit": 30,
-        "best_tones": ["casual", "funny", "motivational"],
-        "emoji_friendly": True,
-        "thread_capable": False
-    },
-    "facebook": {
-        "name": "Facebook",
-        "char_limit": 63206,
-        "optimal_length": "40-80 characters",
-        "hashtag_limit": 3,
-        "best_tones": ["casual", "supportive", "empathetic"],
-        "emoji_friendly": True,
-        "thread_capable": False
-    },
     "reddit": {
         "name": "Reddit",
         "char_limit": 10000,
@@ -202,15 +166,6 @@ PLATFORM_CONFIGS = {
         "best_tones": ["casual", "respectful", "funny"],
         "emoji_friendly": False,
         "thread_capable": True
-    },
-    "tiktok": {
-        "name": "TikTok",
-        "char_limit": 150,
-        "optimal_length": "100-150 characters",
-        "hashtag_limit": 5,
-        "best_tones": ["funny", "casual", "motivational"],
-        "emoji_friendly": True,
-        "thread_capable": False
     },
     "youtube": {
         "name": "YouTube",
@@ -256,11 +211,6 @@ def generate_hashtags(comment: str, platform: str, tone: str) -> List[str]:
     
     # Platform-specific hashtag strategies
     hashtag_templates = {
-        "twitter": ["#{}Vibes", "#SocialMedia", "#{}Community"],
-        "linkedin": ["#{}Insights", "#Professional{}", "#Leadership"],
-        "instagram": ["#InstaDaily", "#{}Life", "#{}Goals"],
-        "facebook": ["#{}Talk", "#Community", "#Connect"],
-        "tiktok": ["#FYP", "#Viral{}", "#{}TikTok"],
         "youtube": ["#{}Content", "#Subscribe", "#YouTubeCommunity"]
     }
     
@@ -698,6 +648,169 @@ async def get_content_sample(platform: str, limit: int = 5):
     
     content = social_apis.fetch_content_sample(platform, limit)
     return {"platform": platform, "content": content}
+
+@app.get("/api/comments/reddit")
+async def get_reddit_comments(query: str = "technology", limit: int = 10):
+    """Search Reddit for posts containing the query and fetch comments"""
+    if not API_CLIENTS_AVAILABLE or not social_apis:
+        return {"error": "Reddit API not available"}
+    
+    try:
+        # Use the new search method
+        comments = social_apis.reddit.search_and_get_comments(query, limit=limit)
+        
+        if not comments:
+            return {
+                "error": f"No comments found for '{query}'. Try a different search term.",
+                "query": query
+            }
+        
+        return {
+            "platform": "reddit",
+            "query": query,
+            "comments": comments,
+            "count": len(comments)
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/comments/youtube")
+async def get_youtube_comments(video_id: str = None, query: str = None, limit: int = 10):
+    """Fetch real comments from a YouTube video by ID or search query"""
+    if not API_CLIENTS_AVAILABLE or not social_apis:
+        return {"error": "YouTube API not available"}
+    
+    try:
+        actual_video_id = video_id
+        video_title = None
+        
+        # If query is provided, search for videos first
+        if query and not video_id:
+            videos = social_apis.youtube.search_videos(query, max_results=5)
+            if not videos:
+                return {"error": f"No videos found for '{query}'"}
+            
+            # Try to find a video with comments enabled
+            for video in videos:
+                if video.get("comments", 0) > 0:
+                    actual_video_id = video["id"]
+                    video_title = video["title"]
+                    break
+            
+            if not actual_video_id:
+                # Use first video even if comments count is 0 (might be inaccurate)
+                actual_video_id = videos[0]["id"]
+                video_title = videos[0]["title"]
+        
+        if not actual_video_id:
+            return {"error": "Please provide either a video_id or query parameter"}
+        
+        # Fetch comments
+        comments = social_apis.youtube.get_video_comments(actual_video_id, max_results=limit)
+        
+        # Add body field for consistency with Reddit comments
+        for comment in comments:
+            comment["body"] = comment.get("text", "")
+            if video_title:
+                comment["video_title"] = video_title
+        
+        return {
+            "platform": "youtube",
+            "video_id": actual_video_id,
+            "video_title": video_title,
+            "query": query,
+            "comments": comments,
+            "count": len(comments)
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/comments/youtube/trending")
+async def get_trending_youtube_comments(limit: int = 5):
+    """Fetch comments from trending YouTube videos"""
+    if not API_CLIENTS_AVAILABLE or not social_apis:
+        return {"error": "YouTube API not available"}
+    
+    try:
+        # Get trending videos
+        videos = social_apis.youtube.get_trending_videos(max_results=10)
+        
+        if not videos:
+            return {"error": "No trending videos found"}
+        
+        all_comments = []
+        videos_checked = 0
+        
+        # Try to get comments from multiple videos (some may have comments disabled)
+        for video in videos:
+            if len(all_comments) >= limit * 3:
+                break
+                
+            video_id = video.get("id")
+            if not video_id:
+                continue
+                
+            videos_checked += 1
+            try:
+                # Try to fetch comments from this video
+                comments = social_apis.youtube.get_video_comments(video_id, max_results=limit)
+                
+                if comments:  # Only add if we got comments
+                    for comment in comments:
+                        comment["video_title"] = video.get("title", "")
+                        comment["video_id"] = video_id
+                        comment["body"] = comment.get("text", "")  # Add body field for consistency
+                        all_comments.append(comment)
+            except Exception as video_error:
+                # Skip videos with disabled comments
+                print(f"Skipping video {video_id}: {video_error}")
+                continue
+        
+        if not all_comments:
+            return {
+                "error": "No comments found. Trending videos may have comments disabled.",
+                "videos_checked": videos_checked
+            }
+        
+        return {
+            "platform": "youtube",
+            "source": "trending",
+            "comments": all_comments[:limit * 3],
+            "count": len(all_comments[:limit * 3]),
+            "videos_checked": videos_checked
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/rewrite/batch")
+async def batch_rewrite_comments(
+    comments: List[str],
+    tone: str = "professional",
+    platform: str = "twitter"
+):
+    """Rewrite multiple comments at once"""
+    if not LANGCHAIN_AVAILABLE:
+        return {"error": "LangChain not available"}
+    
+    results = []
+    for comment in comments[:10]:  # Limit to 10 at a time
+        try:
+            request = RewriteRequest(comment=comment, tone=tone, platform=platform)
+            result = await rewrite_comment(request)
+            results.append({
+                "original": comment,
+                "rewritten": result
+            })
+        except Exception as e:
+            results.append({
+                "original": comment,
+                "error": str(e)
+            })
+    
+    return {
+        "batch_size": len(results),
+        "results": results
+    }
 
 if __name__ == "__main__":
     print("\\n Starting AI Comment Rewriter API...")

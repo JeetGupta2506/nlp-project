@@ -2,7 +2,7 @@
 
 **"Transform your tone. Optimize your reach. Predict your impact."**
 
-An intelligent social media assistant that rewrites comments for 7 major platforms (Twitter, LinkedIn, Instagram, Facebook, Reddit, TikTok, YouTube) with platform-specific optimization, engagement prediction, and intelligent hashtag generation. Built with **LangChain**, **LangGraph**, **Google Gemini AI**, **FastAPI**, and **React**.
+An intelligent social media assistant that rewrites comments for 2 major platforms (Reddit, YouTube) with platform-specific optimization, engagement prediction, and intelligent hashtag generation. Built with **LangChain**, **LangGraph**, **Google Gemini AI**, **FastAPI**, and **React**.
 
 ---
 
@@ -18,13 +18,8 @@ An intelligent social media assistant that rewrites comments for 7 major platfor
 - **Funny** 😂 — Humorous and entertaining
 - **Motivational** 🚀 — Inspiring and energizing
 
-### 📱 **7 Social Media Platform Integrations**
-- **Twitter/X** 𝕏 — 280 char limit, 2 hashtags, casual/funny tones
-- **LinkedIn** 💼 — 3K char limit, 5 hashtags, professional tone
-- **Instagram** 📸 — 2.2K char limit, 30 hashtags, visual storytelling
-- **Facebook** 👍 — 63K char limit, 3 hashtags, community focus
+### 📱 **2 Social Media Platform Integrations**
 - **Reddit** 🤖 — 10K char limit, no hashtags, respectful discourse
-- **TikTok** 🎵 — 150 char limit, 5 hashtags, viral content
 - **YouTube** ▶️ — 10K char limit, 15 hashtags, engaging comments
 
 ### ✨ **Key Capabilities**

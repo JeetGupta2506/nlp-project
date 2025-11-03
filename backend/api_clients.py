@@ -62,30 +62,139 @@ class RedditClient:
             logger.error(f"❌ Reddit error: {e}")
             return []
     
-    def get_top_comments(self, post_id: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Fetch top comments from a Reddit post"""
+    def get_top_comments(self, subreddit: str = "AskReddit", limit: int = 5) -> List[Dict[str, Any]]:
+        """Fetch top comments from a Reddit subreddit or post"""
         if not self.available:
             return []
         
         try:
-            submission = self.client.submission(id=post_id)
-            submission.comment_sort = "top"
-            submission.comments.replace_more(limit=0)
-            
             comments = []
-            for comment in submission.comments[:limit]:
-                comments.append({
-                    "id": comment.id,
-                    "body": comment.body,
-                    "score": comment.score,
-                    "author": str(comment.author),
-                    "created_utc": comment.created_utc
-                })
             
+            # If it looks like a post ID (alphanumeric, shorter), fetch from that post
+            if len(subreddit) < 10 and subreddit.isalnum():
+                submission = self.client.submission(id=subreddit)
+                submission.comment_sort = "top"
+                submission.comments.replace_more(limit=0)
+                
+                for comment in submission.comments[:limit]:
+                    comments.append({
+                        "id": comment.id,
+                        "text": comment.body,
+                        "body": comment.body,
+                        "score": comment.score,
+                        "author": str(comment.author),
+                        "created_utc": comment.created_utc,
+                        "post_title": submission.title
+                    })
+            else:
+                # Otherwise, get comments from recent hot posts in the subreddit
+                subreddit_obj = self.client.subreddit(subreddit)
+                
+                for post in subreddit_obj.hot(limit=3):  # Get from 3 posts
+                    post.comment_sort = "top"
+                    post.comments.replace_more(limit=0)
+                    
+                    for comment in post.comments[:limit]:
+                        if len(comments) >= limit:
+                            break
+                        comments.append({
+                            "id": comment.id,
+                            "text": comment.body,
+                            "body": comment.body,
+                            "score": comment.score,
+                            "author": str(comment.author),
+                            "created_utc": comment.created_utc,
+                            "post_title": post.title,
+                            "subreddit": subreddit
+                        })
+                    
+                    if len(comments) >= limit:
+                        break
+            
+            logger.info(f"✅ Fetched {len(comments)} comments")
             return comments
         
         except Exception as e:
             logger.error(f"❌ Error fetching comments: {e}")
+            return []
+    
+    def search_and_get_comments(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get comments from relevant subreddits based on the query topic"""
+        if not self.available:
+            return []
+        
+        try:
+            comments = []
+            
+            # Map common queries to relevant subreddits
+            query_lower = query.lower()
+            relevant_subreddits = []
+            
+            # Topic-based subreddit mapping
+            if any(word in query_lower for word in ["tech", "technology", "ai", "artificial", "computer", "software", "programming", "code"]):
+                relevant_subreddits = ["technology", "programming", "learnprogramming", "AskReddit"]
+            elif any(word in query_lower for word in ["game", "gaming", "video game"]):
+                relevant_subreddits = ["gaming", "Games", "AskReddit"]
+            elif any(word in query_lower for word in ["movie", "film", "tv", "show"]):
+                relevant_subreddits = ["movies", "television", "AskReddit"]
+            elif any(word in query_lower for word in ["science", "research", "study"]):
+                relevant_subreddits = ["science", "askscience", "AskReddit"]
+            elif any(word in query_lower for word in ["news", "politics", "world"]):
+                relevant_subreddits = ["news", "worldnews", "AskReddit"]
+            elif any(word in query_lower for word in ["book", "read", "novel"]):
+                relevant_subreddits = ["books", "literature", "AskReddit"]
+            else:
+                # Default subreddits for general topics
+                relevant_subreddits = ["AskReddit", "todayilearned", "explainlikeimfive"]
+            
+            # Get comments from hot posts in these subreddits
+            for subreddit_name in relevant_subreddits[:3]:  # Limit to 3 subreddits
+                if len(comments) >= limit:
+                    break
+                
+                try:
+                    subreddit = self.client.subreddit(subreddit_name)
+                    
+                    # Get hot posts (doesn't require search)
+                    for post in subreddit.hot(limit=2):
+                        if len(comments) >= limit:
+                            break
+                        
+                        try:
+                            post.comment_sort = "top"
+                            post.comments.replace_more(limit=0)
+                            
+                            comments_needed = limit - len(comments)
+                            for comment in post.comments[:comments_needed]:
+                                if len(comment.body) > 20:  # Only meaningful comments
+                                    comments.append({
+                                        "id": comment.id,
+                                        "text": comment.body,
+                                        "body": comment.body,
+                                        "score": comment.score,
+                                        "author": str(comment.author),
+                                        "created_utc": comment.created_utc,
+                                        "post_title": post.title,
+                                        "subreddit": str(post.subreddit),
+                                        "query": query
+                                    })
+                                    
+                                    if len(comments) >= limit:
+                                        break
+                                        
+                        except Exception as comment_error:
+                            logger.warning(f"Skipping post comments: {comment_error}")
+                            continue
+                            
+                except Exception as subreddit_error:
+                    logger.warning(f"Skipping subreddit {subreddit_name}: {subreddit_error}")
+                    continue
+            
+            logger.info(f"✅ Fetched {len(comments)} comments for query '{query}' from {relevant_subreddits}")
+            return comments
+        
+        except Exception as e:
+            logger.error(f"❌ Error searching Reddit: {e}")
             return []
 
 
@@ -208,6 +317,53 @@ class YouTubeClient:
         
         except Exception as e:
             logger.error(f"❌ YouTube error: {e}")
+            return []
+    
+    def search_videos(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+        """Search for videos by name/keyword"""
+        if not self.available:
+            return []
+        
+        try:
+            # Search for videos
+            search_request = self.client.search().list(
+                part="snippet",
+                q=query,
+                type="video",
+                maxResults=max_results,
+                order="relevance"
+            )
+            search_response = search_request.execute()
+            
+            video_ids = [item["id"]["videoId"] for item in search_response.get("items", [])]
+            
+            if not video_ids:
+                return []
+            
+            # Get detailed stats for these videos
+            videos_request = self.client.videos().list(
+                part="snippet,statistics",
+                id=",".join(video_ids)
+            )
+            videos_response = videos_request.execute()
+            
+            videos = []
+            for item in videos_response.get("items", []):
+                videos.append({
+                    "id": item["id"],
+                    "title": item["snippet"]["title"],
+                    "channel": item["snippet"]["channelTitle"],
+                    "views": int(item["statistics"].get("viewCount", 0)),
+                    "likes": int(item["statistics"].get("likeCount", 0)),
+                    "comments": int(item["statistics"].get("commentCount", 0)),
+                    "published_at": item["snippet"]["publishedAt"]
+                })
+            
+            logger.info(f"✅ Found {len(videos)} videos for '{query}'")
+            return videos
+        
+        except Exception as e:
+            logger.error(f"❌ YouTube search error: {e}")
             return []
     
     def get_video_comments(self, video_id: str, max_results: int = 20) -> List[Dict[str, Any]]:

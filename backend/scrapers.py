@@ -250,20 +250,7 @@ class WebScrapers:
     
     def fetch_trending_hashtags(self, platform: str) -> List[str]:
         """Fetch trending hashtags for a specific platform"""
-        if platform == "twitter":
-            trends = self.hashtags.scrape_twitter_trending()
-            return [t['name'] for t in trends if t['name'].startswith('#')]
-        
-        elif platform == "linkedin":
-            return self.linkedin.get_trending_topics()
-        
-        elif platform == "instagram":
-            # Return popular general hashtags
-            return ["#InstaDaily", "#PhotoOfTheDay", "#InstaGood", "#FollowMe", "#Love"]
-        
-        elif platform == "tiktok":
-            return ["#FYP", "#ForYou", "#Viral", "#TikTok", "#Trending"]
-        
+        # Only YouTube supports hashtags in remaining platforms
         return []
     
     def fetch_reddit_content(self, subreddit: str = "popular", limit: int = 10) -> List[Dict[str, Any]]:
